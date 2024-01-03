@@ -1,58 +1,30 @@
 import os
 import json
 import telebot
+from telebot import TeleBot, formatting
 import requests
 
-BOT_TOKEN = '6792208041:AAHaeLis5jciaTTAj_s50GQ7jnyDqu9zj48'
+BOT_TOKEN = '6806153412:AAEM_j0hQ8v3eAYpK1E_r0f9Q5x-GaQ03yM'
 API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwvy35Xvp7oAzoEzpvYgCCQ4HdcID-PrfPaXWoDMfg-I6evdN64cgzCYtL1CWPnxQ0wjA/exec'
 
 # Create a bot instancecn
 bot = telebot.TeleBot(BOT_TOKEN)
 
 commands = {  # command description used in the "help" command
-    'start'       : 'Get used to the bot.',
-    'help'        : 'Gives you information about the available commands.',
-    'authorize': "Prove you're an UpYouthian by saying the magic word.",
+    'start'       : 'Get used to the bot',
+    'help'        : 'Gives you information about the available commands',
+    'authorize': "Prove you're an UpYouthian by saying the magic word",
     'subscribe'    : "Subscribe to new resources' updates.",
     'new_resource': "Upload new resource.",
-    'send_resource_directly': "Upload new resource in 1-step.",
-    'give_food': "Give food to Bob."
+    'give_food': "Give food to Bob"
 }
-
-# File paths for persistent data
-AUTHORIZED_USERS_FILE = 'authorized_users.json'
-SUBSCRIBERS_FILE = 'subscribers.json'
-
-# Load authorized users from file
-def load_authorized_users():
-    if os.path.exists(AUTHORIZED_USERS_FILE):
-        with open(AUTHORIZED_USERS_FILE, 'r') as file:
-            return json.load(file)
-    return []
-
-# Save authorized users to file
-def save_authorized_users(authorized_users):
-    with open(AUTHORIZED_USERS_FILE, 'w') as file:
-        json.dump(authorized_users, file)
-
-# Load subscribers from file
-def load_subscribers():
-    if os.path.exists(SUBSCRIBERS_FILE):
-        with open(SUBSCRIBERS_FILE, 'r') as file:
-            return json.load(file)
-    return []
-
-# Save subscribers to file
-def save_subscribers(subscribers):
-    with open(SUBSCRIBERS_FILE, 'w') as file:
-        json.dump(subscribers, file)
-
 # Initialize persistent data
-authorized_users = load_authorized_users()
-subscribers = load_subscribers()
+authorized_users = [6084004709, -4017005706]
+subscribers = [-4017005706]
 
 # food counter
 food = 0
+
 
 @bot.message_handler(commands=['give_food'])
 def give_food(message):
@@ -149,24 +121,6 @@ def check_password(message):
     else:
         bot.send_message(message.chat.id, "You imposter! Don't come near.")
 
-@bot.message_handler(commands=['send_resource_directly'])
-def send_resource_directly(message):
-    chat_id = message.chat.id
-
-    if chat_id not in authorized_users:
-        bot.send_message(chat_id, "Hey! Present yourself using /authorize")
-        return
-
-    resource_name = bot.send_message(chat_id, "Send me your resource.")
-    
-    resource = {}
-    resource["name"] = "Directly sent resource"
-    resource["description"] = "Directly sent resource"
-    resource["tags"] = "direct"
-
-    bot.register_next_step_handler(resource_name, after_link, resource)
-
-
 
 @bot.message_handler(commands=['new_resource'])
 def add_resource(message):
@@ -214,6 +168,7 @@ def after_tags(message, resource):
 
 def after_link(message, resource):
     chat_id = message.chat.id
+    print("hi")
 
     if message.text:
         # If the message is a text (link)
