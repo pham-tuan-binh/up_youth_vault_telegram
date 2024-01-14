@@ -4,7 +4,7 @@ import telebot
 from telebot import TeleBot, formatting
 import requests
 
-BOT_TOKEN = '6806153412:AAEM_j0hQ8v3eAYpK1E_r0f9Q5x-GaQ03yM'
+BOT_TOKEN = '6792208041:AAHaeLis5jciaTTAj_s50GQ7jnyDqu9zj48'
 API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwvy35Xvp7oAzoEzpvYgCCQ4HdcID-PrfPaXWoDMfg-I6evdN64cgzCYtL1CWPnxQ0wjA/exec'
 
 # Create a bot instancecn

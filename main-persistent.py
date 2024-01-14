@@ -67,7 +67,7 @@ def createNotification(resource):
     description = resource['description']
     tags = f"<b>Tags:</b> {resource['tags']}"
     link = f"<b>Link:</b> <a href='{resource['link']}'>Click me for the resource!</a>"
-    author = f"<i>A new resource is uploaded by @{resource['uploadedBy']}</i>"
+    author = f"<i>A new resource is uploaded by <b>{resource['uploadedBy']}</b></i>"
     
     message = f"{author}{line_seperate}\n{name}\n{description}\n\n{tags}\n{link}"
 
@@ -125,6 +125,7 @@ def subscribe(message):
         return
     
     subscribers.append(chat_id)
+    save_subscribers(subscribers);
     
     bot.send_message(chat_id, "You're subscribed to the vault.")
 
@@ -145,6 +146,8 @@ def check_password(message):
     
     if message.text == "Meoww":
         authorized_users.append(message.chat.id)
+        save_authorized_users(authorized_users);
+
         bot.send_message(message.chat.id, "Hehe! Come in, make yourself at home.")
     else:
         bot.send_message(message.chat.id, "You imposter! Don't come near.")
@@ -241,13 +244,12 @@ def after_link(message, resource):
 
 
 def upload_resource(message, resource):
-    resource["uploadedBy"] = message.chat.username
+    resource["uploadedBy"] = f"{message.chat.first_name} {message.chat.last_name}"
     
     json_payload = json.dumps(resource, indent=2)
 
     # Post JSON payload to the API endpoint
     response = post_to_api(json_payload)
-
 
 
     if response is not None and response.status_code == 200:
