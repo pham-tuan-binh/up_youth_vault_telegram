@@ -2,12 +2,21 @@ import os
 import json
 import telebot
 import requests
+from upyouth_vault_assist.upyouth_vault_interface import *
 
-BOT_TOKEN = '6792208041:AAHaeLis5jciaTTAj_s50GQ7jnyDqu9zj48'
+# UpYouth Bot
+# BOT_TOKEN = '6792208041:AAHaeLis5jciaTTAj_s50GQ7jnyDqu9zj48'
+
+# Test Bot
+BOT_TOKEN = '6806153412:AAEM_j0hQ8v3eAYpK1E_r0f9Q5x-GaQ03yM'
+
 API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwvy35Xvp7oAzoEzpvYgCCQ4HdcID-PrfPaXWoDMfg-I6evdN64cgzCYtL1CWPnxQ0wjA/exec'
 
 # Create a bot instancecn
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# Set up UpYouth Vault
+vault = UpYouthVault("https://script.google.com/macros/s/AKfycbwvy35Xvp7oAzoEzpvYgCCQ4HdcID-PrfPaXWoDMfg-I6evdN64cgzCYtL1CWPnxQ0wjA/exec")
 
 commands = {  # command description used in the "help" command
     'start'       : 'Get used to the bot.',
@@ -16,12 +25,14 @@ commands = {  # command description used in the "help" command
     'subscribe'    : "Subscribe to new resources' updates.",
     'new_resource': "Upload new resource.",
     'send_resource_directly': "Upload new resource in 1-step.",
+    'chat': "Chat with Bob",
+    'search': "Search sematically for resources on Vault",
     'give_food': "Give food to Bob."
 }
 
 # File paths for persistent data
-AUTHORIZED_USERS_FILE = 'authorized_users.json'
-SUBSCRIBERS_FILE = 'subscribers.json'
+AUTHORIZED_USERS_FILE = './TelegramUsersStorage/authorized_users.json'
+SUBSCRIBERS_FILE = './TelegramUsersStorage/subscribers.json'
 
 # Load authorized users from file
 def load_authorized_users():
@@ -68,8 +79,9 @@ def createNotification(resource):
     tags = f"<b>Tags:</b> {resource['tags']}"
     link = f"<b>Link:</b> <a href='{resource['link']}'>Click me for the resource!</a>"
     author = f"<i>A new resource is uploaded by <b>{resource['uploadedBy']}</b></i>"
-    
-    message = f"{author}{line_seperate}\n{name}\n{description}\n\n{tags}\n{link}"
+    cta = f"<b>Shortcut:</b> <a href='https://docs.google.com/spreadsheets/d/1-V_X7kJ6Oc9cr0vtW6VkpTpTh-myJ0hLN31ORF6gGag/edit?usp=sharing'>View all resources in UpYouth Vault!</a>"
+
+    message = f"{author}{line_seperate}\n{name}\n{description}\n\n{tags}\n{link}\n{cta}"
 
     return message
 
@@ -216,8 +228,6 @@ def after_tags(message, resource):
     bot.register_next_step_handler(link, after_link, resource)
 
 def after_link(message, resource):
-    chat_id = message.chat.id
-
     if message.text:
         # If the message is a text (link)
         resource["link"] = message.text
@@ -240,17 +250,47 @@ def after_link(message, resource):
         resource["link"] = file_url
         resource["type"] = "photo"
 
-    upload_resource(message, resource)
+    confirmation(message, resource)
+
+def confirmation(message, resource):
+    chat_id = message.chat.id
+
+    confirm = bot.send_message(chat_id, "Confirm you want to upload this resource by typing yes/no.")
+
+    bot.register_next_step_handler(confirm, upload_resource, resource)
 
 
 def upload_resource(message, resource):
-    resource["uploadedBy"] = f"{message.chat.first_name} {message.chat.last_name}"
+    chat_id = message.chat.id
+
+    if message.text != "yes":
+        bot.send_message(chat_id, "Your secret is safe with me.")
+        return
+    
+    if message.chat.first_name is None:
+        first_name = ""
+    else:
+        first_name = message.chat.first_name
+
+    if message.chat.last_name is None:
+        last_name = ""
+    else:
+        last_name = message.chat.last_name
+
+    resource["uploadedBy"] = f"{first_name} {last_name}"
     
     json_payload = json.dumps(resource, indent=2)
 
     # Post JSON payload to the API endpoint
     response = post_to_api(json_payload)
 
+    chromaDocumentResource = {
+        "link": resource["link"],
+        "brief": resource["description"],
+        "name": resource["name"]
+    }
+
+    vault.addResourceToChroma(chromaDocumentResource)
 
     if response is not None and response.status_code == 200:
         bot.reply_to(message, "Hehe! Your resource is saved!")
@@ -266,6 +306,70 @@ def post_to_api(json_payload):
     except Exception as e:
         print(f"Error posting request to API: {e}")
         return None
+
+def createDocumentText(document):
+    line_seperate = "\n_____________\n"
+
+    name = f"<b>{document.metadata['name']}</b>"
+    description = document.metadata['brief']
+    link = f"<b>Link:</b> <a href='{document.metadata['url']}'>Click me for the resource!</a>"
+
+    message = f"{name}\n{description}\n\n{link}"
+
+    return message
+
+def createReference(document):
+    link = f"<b>Resource:</b> <a href='{document.metadata['url']}'>{document.metadata['name']}</a>"
+    message = f"{link}"
+
+    return message
+
+@bot.message_handler(commands=['search'])
+def search(message):
+    cid = message.chat.id
+
+    if cid not in authorized_users:
+        bot.send_message(cid, "Hey! Present yourself using /authorize")
+        return
+
+    try:
+        query = message.text.split(" ", maxsplit = 1)[1]
+        
+        results = vault.semanticSearch(query)
+
+        for document in results[0:1]:
+            bot.send_message(cid, createDocumentText(document), parse_mode='HTML')
+
+    except Exception as e:
+        print(e)
+        bot.reply_to(message, f"Error: {str(e)}")
+
+
+@bot.message_handler(commands=['chat'])
+def echo_all(message):
+    cid = message.chat.id
+
+    if cid not in authorized_users:
+        bot.send_message(cid, "Hey! Present yourself using /authorize")
+        return
+
+    try:
+        query = message.text.split(" ", maxsplit = 1)[1]
+
+        result = vault.chat(query)
+        answer = result["answer"].content
+        docs = result["docs"]
+
+        bot.reply_to(message, answer)
+
+        for document in docs[0:1]:
+            bot.send_message(cid, createReference(document), parse_mode='HTML')
+
+        
+
+    except Exception as e:
+
+        bot.reply_to(message, f"Error: {str(e)}")
 
 if __name__ == '__main__':
     bot.polling(non_stop=True)

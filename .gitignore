@@ -1,2 +1,5 @@
 subscribers.json
 authorized_users.json
+.env
+/chroma_db
+/document_store
